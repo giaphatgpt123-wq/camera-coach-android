@@ -41,10 +41,14 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  var composition by remember{mutableStateOf(CompositionState())};val vision=remember{VisionCompositionEngine{composition=it}}
  var autoEnabled by remember{mutableStateOf(true)};var autoState by remember{mutableStateOf(AutoCaptureState())};val auto=remember{AutoCaptureEngine()};var autoBusy by remember{mutableStateOf(false)}
  DisposableEffect(Unit){sensors.start();onDispose{sensors.stop();vision.close()}}
- LaunchedEffect(composition.score,composition.hasSubject,level.stable,video,autoEnabled,autoBusy){\n  if(!autoEnabled||video||autoBusy){auto.reset();autoState=AutoCaptureState();return@LaunchedEffect}
-  while(autoEnabled&&!video&&!autoBusy){\n   val result=auto.update(composition.score,level.stable,composition.hasSubject);autoState=result.first\n   if(result.second){autoBusy=true;controller.takePhoto({Toast.makeText(context,"Auto Capture ✓",Toast.LENGTH_SHORT).show();autoBusy=false},{Toast.makeText(context,it,Toast.LENGTH_SHORT).show();autoBusy=false});break}
+ LaunchedEffect(composition.score,composition.hasSubject,level.stable,video,autoEnabled,autoBusy){
+  if(!autoEnabled||video||autoBusy){auto.reset();autoState=AutoCaptureState();return@LaunchedEffect}
+  while(autoEnabled&&!video&&!autoBusy){
+   val result=auto.update(composition.score,level.stable,composition.hasSubject);autoState=result.first
+   if(result.second){autoBusy=true;controller.takePhoto({Toast.makeText(context,"Auto Capture ✓",Toast.LENGTH_SHORT).show();autoBusy=false},{Toast.makeText(context,it,Toast.LENGTH_SHORT).show();autoBusy=false});break}
    kotlinx.coroutines.delay(80)
-   if(!(composition.hasSubject&&level.stable&&composition.score>=82))break\n  }
+   if(!(composition.hasSubject&&level.stable&&composition.score>=82))break
+  }
  }
  Box(Modifier.fillMaxSize().background(Color.Black)){
   AndroidView(factory={ctx->PreviewView(ctx).apply{scaleType=PreviewView.ScaleType.FILL_CENTER;pv=this;controller.bind(owner,this,vision.analyzer)}},modifier=Modifier.fillMaxSize().pointerInput(Unit){detectTapGestures{p->pv?.let{controller.focus(p.x,p.y,it.width,it.height)}}}.pointerInput(Unit){detectTransformGestures{_,_,z,_->if(z!=1f)controller.setZoom(controller.currentZoom()*z)}})
