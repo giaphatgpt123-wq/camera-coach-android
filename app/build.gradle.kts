@@ -3,7 +3,22 @@ plugins {
 }
 android {
  namespace="vn.cameracoach.app"; compileSdk=35
- defaultConfig { applicationId="vn.cameracoach.app"; minSdk=26; targetSdk=35; versionCode=5; versionName="0.5.0" }
+ defaultConfig { applicationId="vn.cameracoach.app"; minSdk=26; targetSdk=35; versionCode=6; versionName="0.5.1" }
+ signingConfigs {
+  create("release") {
+   val storeFilePath=System.getenv("CAMERA_COACH_KEYSTORE")
+   if(!storeFilePath.isNullOrBlank()) storeFile=file(storeFilePath)
+   storePassword=System.getenv("CAMERA_COACH_STORE_PASSWORD")
+   keyAlias=System.getenv("CAMERA_COACH_KEY_ALIAS")
+   keyPassword=System.getenv("CAMERA_COACH_KEY_PASSWORD")
+  }
+ }
+ buildTypes {
+  getByName("release") {
+   signingConfig=signingConfigs.getByName("release")
+   isMinifyEnabled=false
+  }
+ }
  buildFeatures { compose=true }
  compileOptions { sourceCompatibility=JavaVersion.VERSION_17; targetCompatibility=JavaVersion.VERSION_17 }
  kotlinOptions { jvmTarget="17" }
