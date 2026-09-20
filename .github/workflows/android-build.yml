@@ -15,10 +15,35 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build debug APK
-        run: gradle assembleDebug --stacktrace
+      - name: Validate signing secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.CAMERA_COACH_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.CAMERA_COACH_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.CAMERA_COACH_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.CAMERA_COACH_KEY_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_B64" || { echo "Missing CAMERA_COACH_KEYSTORE_B64"; exit 1; }
+          test -n "$STORE_PASSWORD" || { echo "Missing CAMERA_COACH_STORE_PASSWORD"; exit 1; }
+          test -n "$KEY_ALIAS" || { echo "Missing CAMERA_COACH_KEY_ALIAS"; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo "Missing CAMERA_COACH_KEY_PASSWORD"; exit 1; }
+      - name: Restore release keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.CAMERA_COACH_KEYSTORE_B64 }}
+        run: echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/camera-coach-release.jks"
+      - name: Build signed release APK
+        env:
+          CAMERA_COACH_KEYSTORE: ${{ runner.temp }}/camera-coach-release.jks
+          CAMERA_COACH_STORE_PASSWORD: ${{ secrets.CAMERA_COACH_STORE_PASSWORD }}
+          CAMERA_COACH_KEY_ALIAS: ${{ secrets.CAMERA_COACH_KEY_ALIAS }}
+          CAMERA_COACH_KEY_PASSWORD: ${{ secrets.CAMERA_COACH_KEY_PASSWORD }}
+        run: gradle assembleRelease --stacktrace
+      - name: Verify APK signature
+        run: |
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -f "$APK"
+          "${ANDROID_HOME}/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
       - uses: actions/upload-artifact@v4
         with:
-          name: camera-coach-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: camera-coach-signed-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
