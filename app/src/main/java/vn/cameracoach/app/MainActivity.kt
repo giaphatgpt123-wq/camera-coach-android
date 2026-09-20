@@ -37,7 +37,8 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  if(!cameraGranted){Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){Button(onClick={permissions.launch(arrayOf(Manifest.permission.CAMERA,Manifest.permission.RECORD_AUDIO))}){Text("Cấp quyền Camera")}};return}
  val controller=remember{CameraController(context)};var pv by remember{mutableStateOf<PreviewView?>(null)}
  var video by remember{mutableStateOf(false)};var recording by remember{mutableStateOf(false)};var torch by remember{mutableStateOf(false)}
- var level by remember{mutableStateOf(LevelState())};val sensors=remember{SensorEngine(context){level=it}}\n var composition by remember{mutableStateOf(CompositionState())};val vision=remember{VisionCompositionEngine{composition=it}}
+ var level by remember{mutableStateOf(LevelState())};val sensors=remember{SensorEngine(context){level=it}}
+ var composition by remember{mutableStateOf(CompositionState())};val vision=remember{VisionCompositionEngine{composition=it}}
  DisposableEffect(Unit){sensors.start();onDispose{sensors.stop();vision.close()}}
  Box(Modifier.fillMaxSize().background(Color.Black)){
   AndroidView(factory={ctx->PreviewView(ctx).apply{scaleType=PreviewView.ScaleType.FILL_CENTER;pv=this;controller.bind(owner,this,vision.analyzer)}},modifier=Modifier.fillMaxSize().pointerInput(Unit){detectTapGestures{p->pv?.let{controller.focus(p.x,p.y,it.width,it.height)}}}.pointerInput(Unit){detectTransformGestures{_,_,z,_->if(z!=1f)controller.setZoom(controller.currentZoom()*z)}})
