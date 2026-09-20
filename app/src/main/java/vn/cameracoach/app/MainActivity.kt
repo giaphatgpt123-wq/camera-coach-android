@@ -39,8 +39,9 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  var video by remember{mutableStateOf(false)};var recording by remember{mutableStateOf(false)};var torch by remember{mutableStateOf(false)}
  var level by remember{mutableStateOf(LevelState())};val sensors=remember{SensorEngine(context){level=it}}
  var composition by remember{mutableStateOf(CompositionState())};val vision=remember{VisionCompositionEngine{composition=it}}
+ var portrait by remember{mutableStateOf(PortraitState())};var portraitMode by remember{mutableStateOf(false)};val portraitCoach=remember{PortraitCoachEngine{portrait=it}}
  var autoEnabled by remember{mutableStateOf(true)};var autoState by remember{mutableStateOf(AutoCaptureState())};val auto=remember{AutoCaptureEngine()};var autoBusy by remember{mutableStateOf(false)}
- DisposableEffect(Unit){sensors.start();onDispose{sensors.stop();vision.close()}}
+ DisposableEffect(Unit){sensors.start();onDispose{sensors.stop();vision.close();portraitCoach.close();controller.shutdown()}}
  LaunchedEffect(composition.score,composition.hasSubject,level.stable,video,autoEnabled,autoBusy){
   if(!autoEnabled||video||autoBusy){auto.reset();autoState=AutoCaptureState();return@LaunchedEffect}
   while(autoEnabled&&!video&&!autoBusy){
@@ -51,18 +52,18 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
   }
  }
  Box(Modifier.fillMaxSize().background(Color.Black)){
-  AndroidView(factory={ctx->PreviewView(ctx).apply{scaleType=PreviewView.ScaleType.FILL_CENTER;pv=this;controller.bind(owner,this,vision.analyzer)}},modifier=Modifier.fillMaxSize().pointerInput(Unit){detectTapGestures{p->pv?.let{controller.focus(p.x,p.y,it.width,it.height)}}}.pointerInput(Unit){detectTransformGestures{_,_,z,_->if(z!=1f)controller.setZoom(controller.currentZoom()*z)}})
+  AndroidView(factory={ctx->PreviewView(ctx).apply{scaleType=PreviewView.ScaleType.FILL_CENTER;pv=this;controller.bind(owner,this,if(portraitMode)portraitCoach.analyzer else vision.analyzer)}},modifier=Modifier.fillMaxSize().pointerInput(Unit){detectTapGestures{p->pv?.let{controller.focus(p.x,p.y,it.width,it.height)}}}.pointerInput(Unit){detectTransformGestures{_,_,z,_->if(z!=1f)controller.setZoom(controller.currentZoom()*z)}})
   Canvas(Modifier.fillMaxSize()){val c=Offset(size.width/2,size.height*.48f);val h=size.width*.28f;val dy=(level.rollDegrees.coerceIn(-15f,15f)/15f)*45f;drawLine(if(level.stable)Color.Green else Color.White,Offset(c.x-h,c.y-dy),Offset(c.x+h,c.y+dy),5f);drawCircle(Color.White,5f,c)}
-  Canvas(Modifier.fillMaxSize()){val w=size.width;val h=size.height;val c=Color.White.copy(alpha=.45f);drawLine(c,Offset(w/3,0f),Offset(w/3,h),2f);drawLine(c,Offset(2*w/3,0f),Offset(2*w/3,h),2f);drawLine(c,Offset(0f,h/3),Offset(w,h/3),2f);drawLine(c,Offset(0f,2*h/3),Offset(w,2*h/3),2f);if(composition.hasSubject)drawCircle(if(composition.score>=82)Color.Green else Color.Yellow,22f,Offset(composition.cx*w,composition.cy*h),4f)}
-  Column(Modifier.align(Alignment.TopCenter).padding(top=68.dp),horizontalAlignment=Alignment.CenterHorizontally){Surface(color=Color.Black.copy(alpha=.65f)){Text(composition.guidance+"  "+composition.score+"/100",color=if(composition.score>=82)Color.Green else Color.White,modifier=Modifier.padding(horizontal=18.dp,vertical=8.dp))};Spacer(Modifier.height(6.dp));Surface(color=Color.Black.copy(alpha=.5f)){Text(level.guidance,color=if(level.stable)Color.Green else Color.White,modifier=Modifier.padding(horizontal=14.dp,vertical=6.dp))}}
-  Row(Modifier.fillMaxWidth().padding(16.dp).align(Alignment.TopCenter),horizontalArrangement=Arrangement.SpaceBetween){AssistChip(onClick={autoEnabled=!autoEnabled;auto.reset()},label={Text(if(autoEnabled) autoState.label else "AUTO OFF")});AssistChip(onClick={torch=controller.toggleTorch()},label={Text(if(torch)"Flash ON" else "Flash")})}
+  Canvas(Modifier.fillMaxSize()){val w=size.width;val h=size.height;val c=Color.White.copy(alpha=.45f);drawLine(c,Offset(w/3,0f),Offset(w/3,h),2f);drawLine(c,Offset(2*w/3,0f),Offset(2*w/3,h),2f);drawLine(c,Offset(0f,h/3),Offset(w,h/3),2f);drawLine(c,Offset(0f,2*h/3),Offset(w,2*h/3),2f);if(portraitMode&&portrait.hasFace)drawCircle(if(portrait.score>=84)Color.Green else Color.Yellow,28f,Offset(portrait.cx*w,portrait.cy*h),4f) else if(composition.hasSubject)drawCircle(if(composition.score>=82)Color.Green else Color.Yellow,22f,Offset(composition.cx*w,composition.cy*h),4f)}
+  Column(Modifier.align(Alignment.TopCenter).padding(top=68.dp),horizontalAlignment=Alignment.CenterHorizontally){Surface(color=Color.Black.copy(alpha=.65f)){Text((if(portraitMode)portrait.guidance else composition.guidance)+"  "+(if(portraitMode)portrait.score else composition.score)+"/100",color=if((if(portraitMode)portrait.score>=84 else composition.score>=82))Color.Green else Color.White,modifier=Modifier.padding(horizontal=18.dp,vertical=8.dp))};Spacer(Modifier.height(6.dp));Surface(color=Color.Black.copy(alpha=.5f)){Text(level.guidance,color=if(level.stable)Color.Green else Color.White,modifier=Modifier.padding(horizontal=14.dp,vertical=6.dp))}}
+  Row(Modifier.fillMaxWidth().padding(16.dp).align(Alignment.TopCenter),horizontalArrangement=Arrangement.SpaceBetween){AssistChip(onClick={portraitMode=!portraitMode;pv?.let{controller.bind(owner,it,if(portraitMode)portraitCoach.analyzer else vision.analyzer)}},label={Text(if(portraitMode)"PORTRAIT" else "SCENE")});AssistChip(onClick={autoEnabled=!autoEnabled;auto.reset()},label={Text(if(autoEnabled) autoState.label else "AUTO OFF")});AssistChip(onClick={torch=controller.toggleTorch()},label={Text(if(torch)"Flash ON" else "Flash")})}
   Column(Modifier.fillMaxWidth().padding(20.dp).align(Alignment.BottomCenter),horizontalAlignment=Alignment.CenterHorizontally){
    Row(horizontalArrangement=Arrangement.spacedBy(20.dp),verticalAlignment=Alignment.CenterVertically){
     TextButton(onClick={video=false}){Text("ẢNH",color=if(!video)Color.Yellow else Color.White)}
     Button(onClick={if(video){if(!audioGranted&&!recording)permissions.launch(arrayOf(Manifest.permission.RECORD_AUDIO)) else{controller.toggleVideo(audioGranted){e->if(e is androidx.camera.video.VideoRecordEvent.Finalize)Toast.makeText(context,"Đã lưu video",Toast.LENGTH_SHORT).show()};recording=controller.isRecording}}else controller.takePhoto({Toast.makeText(context,"Đã lưu ảnh",Toast.LENGTH_SHORT).show()},{Toast.makeText(context,it,Toast.LENGTH_SHORT).show()})}){Text(if(video&&recording)"DỪNG" else if(video)"QUAY" else "CHỤP")}
     TextButton(onClick={video=true}){Text("VIDEO",color=if(video)Color.Yellow else Color.White)}
    }
-   TextButton(onClick={pv?.let{controller.switchCamera(owner,it,vision.analyzer)}}){Text("Đổi camera",color=Color.White)}
+   TextButton(onClick={pv?.let{controller.switchCamera(owner,it,if(portraitMode)portraitCoach.analyzer else vision.analyzer)}}){Text("Đổi camera",color=Color.White)}
   }
  }
 }
