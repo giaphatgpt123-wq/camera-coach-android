@@ -38,8 +38,14 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  val controller=remember{CameraController(context)};var pv by remember{mutableStateOf<PreviewView?>(null)}
  var video by remember{mutableStateOf(false)};var recording by remember{mutableStateOf(false)};var torch by remember{mutableStateOf(false)}
  var level by remember{mutableStateOf(LevelState())};val sensors=remember{SensorEngine(context){level=it}}
- var composition by remember{mutableStateOf(CompositionState())};val vision=remember{VisionCompositionEngine{composition=it}}\n var autoEnabled by remember{mutableStateOf(true)};var autoState by remember{mutableStateOf(AutoCaptureState())};val auto=remember{AutoCaptureEngine()};var autoBusy by remember{mutableStateOf(false)}
- DisposableEffect(Unit){sensors.start();onDispose{sensors.stop();vision.close()}}\n LaunchedEffect(composition.score,composition.hasSubject,level.stable,video,autoEnabled,autoBusy){\n  if(!autoEnabled||video||autoBusy){auto.reset();autoState=AutoCaptureState();return@LaunchedEffect}\n  while(autoEnabled&&!video&&!autoBusy){\n   val result=auto.update(composition.score,level.stable,composition.hasSubject);autoState=result.first\n   if(result.second){autoBusy=true;controller.takePhoto({Toast.makeText(context,"Auto Capture ✓",Toast.LENGTH_SHORT).show();autoBusy=false},{Toast.makeText(context,it,Toast.LENGTH_SHORT).show();autoBusy=false});break}\n   kotlinx.coroutines.delay(80)\n   if(!(composition.hasSubject&&level.stable&&composition.score>=82))break\n  }\n }
+ var composition by remember{mutableStateOf(CompositionState())};val vision=remember{VisionCompositionEngine{composition=it}}
+ var autoEnabled by remember{mutableStateOf(true)};var autoState by remember{mutableStateOf(AutoCaptureState())};val auto=remember{AutoCaptureEngine()};var autoBusy by remember{mutableStateOf(false)}
+ DisposableEffect(Unit){sensors.start();onDispose{sensors.stop();vision.close()}}
+ LaunchedEffect(composition.score,composition.hasSubject,level.stable,video,autoEnabled,autoBusy){\n  if(!autoEnabled||video||autoBusy){auto.reset();autoState=AutoCaptureState();return@LaunchedEffect}
+  while(autoEnabled&&!video&&!autoBusy){\n   val result=auto.update(composition.score,level.stable,composition.hasSubject);autoState=result.first\n   if(result.second){autoBusy=true;controller.takePhoto({Toast.makeText(context,"Auto Capture ✓",Toast.LENGTH_SHORT).show();autoBusy=false},{Toast.makeText(context,it,Toast.LENGTH_SHORT).show();autoBusy=false});break}
+   kotlinx.coroutines.delay(80)
+   if(!(composition.hasSubject&&level.stable&&composition.score>=82))break\n  }
+ }
  Box(Modifier.fillMaxSize().background(Color.Black)){
   AndroidView(factory={ctx->PreviewView(ctx).apply{scaleType=PreviewView.ScaleType.FILL_CENTER;pv=this;controller.bind(owner,this,vision.analyzer)}},modifier=Modifier.fillMaxSize().pointerInput(Unit){detectTapGestures{p->pv?.let{controller.focus(p.x,p.y,it.width,it.height)}}}.pointerInput(Unit){detectTransformGestures{_,_,z,_->if(z!=1f)controller.setZoom(controller.currentZoom()*z)}})
   Canvas(Modifier.fillMaxSize()){val c=Offset(size.width/2,size.height*.48f);val h=size.width*.28f;val dy=(level.rollDegrees.coerceIn(-15f,15f)/15f)*45f;drawLine(if(level.stable)Color.Green else Color.White,Offset(c.x-h,c.y-dy),Offset(c.x+h,c.y+dy),5f);drawCircle(Color.White,5f,c)}
